@@ -97,7 +97,7 @@ jobs:
           grep -qx 'CONFIG_TARGET_ipq40xx_generic=y' .config
           grep -qx 'CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_p2w_r619ac-128m=y' .config
           grep -Rni -E 'define Device/p2w_r619ac-128m|TARGET_DEVICES.*p2w_r619ac-128m' target/linux/ipq40xx/image
-          test -f target/linux/ipq40xx/files-6.6/arch/arm/boot/dts/qcom/qcom-ipq4019-r619ac-128m.dts
+          test -f target/linux/ipq40xx/files-6.12/arch/arm/boot/dts/qcom/qcom-ipq4019-r619ac-128m.dts
 
       - name: Install DualWeb overlay
         shell: bash
