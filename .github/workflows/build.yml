@@ -60,7 +60,7 @@ jobs:
           cp feeds.conf.default openwrt/feeds.conf.default
           cd openwrt
           ./scripts/feeds update -a
-          ./scripts/feeds install -a
+          ./scripts/feeds install -a -p luci
 
       - name: Fetch DualWeb public UI/API
         shell: bash
