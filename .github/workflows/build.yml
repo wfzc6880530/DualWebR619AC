@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - immortalwrt-24.10
+      - 'rebuild/**'
     paths:
       - ".github/workflows/build.yml"
       - "config/**"
@@ -96,13 +97,16 @@ jobs:
         run: |
           set -euxo pipefail
           cd openwrt
-          cp ../config/r619ac.config .config
-          printf '\nCONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_p2w_r619ac-128m=y\n' >> .config
+          # Select the device through OpenWrt's canonical profile variable.
+          # A raw DEVICE_* line alone is discarded by Kconfig on this tree.
+          sed -i '/^CONFIG_TARGET_PROFILE=/d' .config
+          printf '\nCONFIG_TARGET_PROFILE="DEVICE_p2w_r619ac-128m"\n' >> .config
           make defconfig
           echo "===== Target and selected device after defconfig ====="
-          grep -E '^CONFIG_TARGET_(ipq40xx|ipq40xx_generic)=|^CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_p2w_r619ac-128m=' .config
+          grep -E '^CONFIG_TARGET_(ipq40xx|ipq40xx_generic)=|^CONFIG_TARGET_PROFILE=|^CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_p2w_r619ac-128m=' .config || true
           grep -qx 'CONFIG_TARGET_ipq40xx=y' .config
           grep -qx 'CONFIG_TARGET_ipq40xx_generic=y' .config
+          grep -qx 'CONFIG_TARGET_PROFILE="DEVICE_p2w_r619ac-128m"' .config
           grep -qx 'CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_p2w_r619ac-128m=y' .config
           grep -n -A8 'define Device/p2w_r619ac-128m' target/linux/ipq40xx/image/generic.mk
           test -f target/linux/ipq40xx/files-6.6/arch/arm/boot/dts/qcom/qcom-ipq4019-r619ac-128m.dts
