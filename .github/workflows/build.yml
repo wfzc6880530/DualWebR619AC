@@ -42,16 +42,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends             build-essential clang flex bison g++ gawk gcc-multilib g++-multilib golang-go             gettext git libncurses-dev libssl-dev python3 python3-setuptools             python3-dev rsync swig unzip zlib1g-dev file wget curl ca-certificates             time xsltproc libxml-parser-perl libelf-dev ecj fastjar java-propose-classpath             zstd
 
-      - name: Clone ImmortalWrt 24.10
+      - name: Clone ImmortalWrt 25.12
         shell: bash
         run: |
           set -eux
-          git clone --depth=1 --branch openwrt-24.10 https://github.com/immortalwrt/immortalwrt.git openwrt
+          git clone --depth=1 --branch openwrt-25.12 https://github.com/immortalwrt/immortalwrt.git openwrt
           cd openwrt
           echo "ImmortalWrt revision:"
           git log -1 --format='%H %s'
           grep -n -E 'define Device/p2w_r619ac(-128m)?|TARGET_DEVICES.*p2w_r619ac-128m' target/linux/ipq40xx/image/generic.mk
-          test -f target/linux/ipq40xx/files-6.6/arch/arm/boot/dts/qcom/qcom-ipq4019-r619ac-128m.dts
+          test -f target/linux/ipq40xx/files-6.12/arch/arm/boot/dts/qcom/qcom-ipq4019-r619ac-128m.dts
 
       - name: Configure feeds
         shell: bash
@@ -81,13 +81,8 @@ jobs:
           chmod 0755 overlay/usr/sbin/dualweb-api
           chmod 0755 overlay/etc/uci-defaults/99-dualweb
           chmod 0755 overlay/etc/init.d/dualweb-api
-          # The upstream first-boot installer is APK/ImmortalWrt 25.12 specific; this build uses 24.10/opkg.
-          # Keep DualWeb's UI/API but disable the incompatible automatic Nikki installer.
-          sed -i \\
-            -e '\\|/etc/init.d/dualweb-firstboot enable|d' \\
-            -e '\\|/etc/init.d/dualweb-firstboot start|d' \\
-            overlay/etc/uci-defaults/99-dualweb
-          rm -f overlay/etc/init.d/dualweb-firstboot overlay/usr/sbin/dualweb-firstboot-packages
+          chmod 0755 overlay/etc/init.d/dualweb-firstboot
+          chmod 0755 overlay/usr/sbin/dualweb-firstboot-packages
 
       - name: Apply R619AC configuration
         shell: bash
@@ -112,7 +107,8 @@ jobs:
           cp -a dualweb/overlay/. openwrt/files/
           chmod 0755 openwrt/files/etc/uci-defaults/99-dualweb
           chmod 0755 openwrt/files/etc/init.d/dualweb-api
-          # No 25.12/APK-specific first-boot package installer on ImmortalWrt 24.10.
+          chmod 0755 openwrt/files/etc/init.d/dualweb-firstboot
+          chmod 0755 openwrt/files/usr/sbin/dualweb-firstboot-packages
 
       - name: Download sources
         shell: bash
@@ -164,6 +160,6 @@ jobs:
         shell: bash
         run: |
           df -h
-          echo "Base: ImmortalWrt openwrt-24.10"
+          echo "Base: ImmortalWrt openwrt-25.12"
           echo "Target: ipq40xx/generic / p2w_r619ac-128m"
           echo "DualWeb API: ARMv7"
