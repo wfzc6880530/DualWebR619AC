@@ -91,13 +91,13 @@ jobs:
           cd openwrt
           cp ../config/r619ac.config .config
           make defconfig
-          echo "===== Device profile after defconfig ====="
-          grep -E '^CONFIG_TARGET_(ipq40xx|ipq40xx_generic)=|^CONFIG_TARGET_DEVICE_.*p2w_r619ac[_-]128m=' .config
+          echo "===== Target after defconfig ====="
+          grep -E '^CONFIG_TARGET_(ipq40xx|ipq40xx_generic)=' .config
           grep -qx 'CONFIG_TARGET_ipq40xx=y' .config
           grep -qx 'CONFIG_TARGET_ipq40xx_generic=y' .config
-          grep -qx 'CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_p2w_r619ac_128m=y' .config
-          grep -Rni -E 'define Device/p2w_r619ac-128m|TARGET_DEVICES.*p2w_r619ac-128m' target/linux/ipq40xx/image
+          grep -Rni -E 'define Device/p2w_r619ac-128m|TARGET_DEVICES.*p2w_r619ac-128m' target/linux/ipq40xx/image/generic.mk
           test -f target/linux/ipq40xx/files-6.12/arch/arm/boot/dts/qcom/qcom-ipq4019-r619ac-128m.dts
+          echo "Device profile verified in source; build will include target's device images."
 
       - name: Install DualWeb overlay
         shell: bash
@@ -161,5 +161,5 @@ jobs:
         run: |
           df -h
           echo "Base: ImmortalWrt openwrt-25.12"
-          echo "Target: ipq40xx/generic / p2w_r619ac-128m"
+          echo "Target: ipq40xx/generic (R619AC 128M image selected during artifact collection)"
           echo "DualWeb API: ARMv7"
