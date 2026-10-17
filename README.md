@@ -4,7 +4,7 @@
 
 ## 构建策略
 
-- 固件基线：ImmortalWrt `openwrt-24.10` 分支（Linux 6.6 系列）。
+- 固件基线：ImmortalWrt `openwrt-25.12` 分支（Linux 6.12 系列，使用 APK 包管理器以匹配 DualWeb 的安装流程）。
 - 设备：`ipq40xx/generic` / `p2w_r619ac-128m`。
 - DualWeb：参考 `wfzc6880530/dualweb` 的 `test/openbox-artifacts` 分支，将后端交叉编译为 ARMv7 并打包到固件。
 - 构建通过 GitHub Actions 执行，固件作为 Actions Artifact 保存。
