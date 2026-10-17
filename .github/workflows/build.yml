@@ -117,6 +117,10 @@ jobs:
           chmod 0755 openwrt/files/etc/init.d/dualweb-api
           chmod 0755 openwrt/files/etc/init.d/dualweb-firstboot
           chmod 0755 openwrt/files/usr/sbin/dualweb-firstboot-packages
+          # ImmortalWrt 24.10 uses opkg; the upstream first-boot Nikki installer
+          # currently assumes apk feeds. Disable auto-install until opkg support is verified.
+          sed -i '/\/etc\/init.d\/dualweb-firstboot enable/d; /\/etc\/init.d\/dualweb-firstboot start/d' \
+            openwrt/files/etc/uci-defaults/99-dualweb
 
       - name: Download sources
         shell: bash
