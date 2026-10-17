@@ -97,6 +97,8 @@ jobs:
         run: |
           set -euxo pipefail
           cd openwrt
+          # Start from the repository's checked-in base configuration.
+          cp ../config/r619ac.config .config
           # Select the device through OpenWrt's canonical profile variable.
           # A raw DEVICE_* line alone is discarded by Kconfig on this tree.
           sed -i '/^CONFIG_TARGET_PROFILE=/d' .config
