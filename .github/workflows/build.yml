@@ -112,14 +112,10 @@ jobs:
           grep -qx 'CONFIG_PACKAGE_libustream-openssl=y' .config
           ! grep -qx 'CONFIG_PACKAGE_libustream-mbedtls=y' .config
 
-          # On this 24.10 tree defconfig has fallen back to the first ipq40xx
-          # profile. Re-assert the intended image profile after normalization;
-          # do not run defconfig again after this point.
-          sed -i '/^CONFIG_TARGET_PROFILE=/d; /^CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_/d' .config
-          printf '\nCONFIG_TARGET_PROFILE="DEVICE_p2w_r619ac-128m"\n' >> .config
-          printf 'CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_p2w_r619ac-128m=y\n' >> .config
-
-          echo "========== Final target selection =========="
+          # Select the device through Kconfig before defconfig, not by
+          # appending profile symbols after Kconfig has already normalized .config.
+          # This keeps the image-generation targets consistent with the selected profile.
+          echo "========== Final target selection after defconfig =========="
           grep -E '^CONFIG_TARGET_(ipq40xx|ipq40xx_generic)=|^CONFIG_TARGET_PROFILE=|^CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_' .config || true
           grep -qx 'CONFIG_TARGET_ipq40xx=y' .config
           grep -qx 'CONFIG_TARGET_ipq40xx_generic=y' .config
@@ -168,6 +164,8 @@ jobs:
 
           echo "========== Generated R619AC images =========="
           find "$TARGET_DIR" -maxdepth 1 -type f -iname '*r619ac*' -printf '%f (%s bytes)\n' || true
+          echo "========== All target image files (diagnostics) =========="
+          find "$TARGET_DIR" -maxdepth 1 -type f \( -name '*.ubi' -o -name '*sysupgrade.bin' -o -name '*initramfs*' \) -printf '%f (%s bytes)\n' | sort || true
           echo "========== Generated profile list =========="
           grep -in 'p2w_r619ac' "$TARGET_DIR/profiles.json" || true
 
