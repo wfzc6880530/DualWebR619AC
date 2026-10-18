@@ -95,14 +95,22 @@ jobs:
           make defconfig
 
           echo "========== Selected libustream TLS backend =========="
-          grep -E '^CONFIG_PACKAGE_(libustream-(mbedtls|openssl)20201210|luci-ssl(-openssl)?)=' .config || true
-          if grep -qx 'CONFIG_PACKAGE_libustream-mbedtls20201210=y' .config && \
-             grep -qx 'CONFIG_PACKAGE_libustream-openssl20201210=y' .config; then
+          grep -E '^CONFIG_PACKAGE_(libustream-(mbedtls|openssl)|luci-ssl(-openssl)?)=' .config || true
+
+          # The Kconfig symbols omit the ABI suffix. The generated opkg package
+          # names include it (for example libustream-openssl20201210).
+          if grep -qx 'CONFIG_PACKAGE_libustream-mbedtls=y' .config && \
+             grep -qx 'CONFIG_PACKAGE_libustream-openssl=y' .config; then
             echo "::error::Both libustream TLS backends are enabled; they install the same /lib/libustream-ssl.so file."
             exit 1
           fi
-          grep -qx 'CONFIG_PACKAGE_libustream-mbedtls20201210=y' .config
-          ! grep -qx 'CONFIG_PACKAGE_libustream-openssl20201210=y' .config
+
+          # This image intentionally uses OpenSSL only. Generic luci-ssl may
+          # select the default mbedTLS backend, so require the OpenSSL variant.
+          grep -qx 'CONFIG_PACKAGE_luci-ssl-openssl=y' .config
+          ! grep -qx 'CONFIG_PACKAGE_luci-ssl=y' .config
+          grep -qx 'CONFIG_PACKAGE_libustream-openssl=y' .config
+          ! grep -qx 'CONFIG_PACKAGE_libustream-mbedtls=y' .config
 
           # On this 24.10 tree defconfig has fallen back to the first ipq40xx
           # profile. Re-assert the intended image profile after normalization;
