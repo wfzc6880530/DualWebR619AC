@@ -190,3 +190,4 @@ jobs:
           echo "Base: ImmortalWrt 24.10 / openwrt-24.10 / Linux 6.6 / opkg"
           echo "Target: ipq40xx/generic / P&W R619AC 128M NAND"
           echo "DualWeb UI/API: local src/ and overlay/ files; API cross-compiled for ARMv7"
+# Rebuild trigger: validate the clean DualWeb-based 24.10 project layout.
