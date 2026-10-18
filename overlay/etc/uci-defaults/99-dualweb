@@ -1,0 +1,41 @@
+#!/bin/sh
+# First-boot setup: preserve router LAN defaults and move LuCI to 8080.
+uci -q delete uhttpd.main.listen_http
+uci add_list uhttpd.main.listen_http='0.0.0.0:8080'
+uci add_list uhttpd.main.listen_http='[::]:8080'
+uci commit uhttpd
+
+# Prefer Argon when installed; keep Vantage fallback if Argon is unavailable.
+if [ -d /www/luci-static/argon ]; then
+    uci -q set luci.main.mediaurlbase='/luci-static/argon'
+elif [ -d /www/luci-static/vantage ]; then
+    uci -q set luci.main.mediaurlbase='/luci-static/vantage'
+fi
+uci -q commit luci
+
+/etc/init.d/uhttpd enable
+/etc/init.d/dualweb-api enable
+/etc/init.d/nginx enable
+
+mkdir -p /etc/dualweb /etc/dualweb/profiles /root
+# Initialize the homepage password once. Do not reset it on later boots.
+if [ ! -s /etc/dualweb/password ]; then
+    printf '%s' 'root' > /etc/dualweb/password
+    chmod 600 /etc/dualweb/password
+    printf '首页初始密码：root\n请登录后立即修改。\n' > /root/dualweb-initial-password.txt
+    chmod 600 /root/dualweb-initial-password.txt
+fi
+if [ ! -s /etc/dualweb/session-key ]; then
+    head -c 32 /dev/urandom | hexdump -v -e '/1 "%02x"' > /etc/dualweb/session-key
+    chmod 600 /etc/dualweb/session-key
+fi
+if [ ! -s /etc/dualweb/mihomo-secret ]; then
+    head -c 32 /dev/urandom | hexdump -v -e '/1 "%02x"' > /etc/dualweb/mihomo-secret
+    chmod 600 /etc/dualweb/mihomo-secret
+fi
+
+# Run package installation under procd, not as a child of uci-defaults.
+/etc/init.d/dualweb-firstboot enable
+/etc/init.d/dualweb-firstboot start
+
+exit 0

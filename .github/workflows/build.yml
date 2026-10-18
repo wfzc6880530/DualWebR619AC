@@ -8,24 +8,28 @@ on:
       - immortalwrt-24.10
       - 'rebuild/**'
     paths:
-      - ".github/workflows/build.yml"
-      - "config/**"
-      - "feeds.conf.default"
-      - "README.md"
+      - '.github/workflows/build.yml'
+      - 'config/**'
+      - 'feeds.conf.default'
+      - 'overlay/**'
+      - 'src/**'
+      - 'build.sh'
+      - 'packages.txt'
+      - 'README.md'
 
 permissions:
   contents: read
 
 concurrency:
   group: dualweb-r619ac-24.10-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
-      - name: Checkout build configuration
+      - name: Checkout DualWeb R619AC project
         uses: actions/checkout@v4
 
       - name: Free disk space
@@ -48,15 +52,27 @@ jobs:
             rsync swig unzip zlib1g-dev file wget curl ca-certificates time xsltproc \
             libxml-parser-perl libelf-dev ecj fastjar java-propose-classpath zstd
 
+      - name: Build DualWeb API for ARMv7
+        shell: bash
+        run: |
+          set -eux
+          test -s src/main.go
+          test -d overlay
+          test -s packages.txt
+          bash -n build.sh
+          bash ./build.sh
+          file overlay/usr/sbin/dualweb-api
+
       - name: Clone ImmortalWrt 24.10
         shell: bash
         run: |
           set -eux
           git clone --depth=1 --branch openwrt-24.10 https://github.com/immortalwrt/immortalwrt.git openwrt
           cd openwrt
-          echo "ImmortalWrt revision:"
+          echo "========== ImmortalWrt revision =========="
           git log -1 --format='%H %s'
-          grep -n -A24 -B2 'define Device/p2w_r619ac-128m' target/linux/ipq40xx/image/generic.mk
+          echo "========== R619AC device definition =========="
+          grep -n -A12 -B2 'define Device/p2w_r619ac-128m' target/linux/ipq40xx/image/generic.mk
           test -f target/linux/ipq40xx/files-6.6/arch/arm/boot/dts/qcom/qcom-ipq4019-r619ac-128m.dts
 
       - name: Configure feeds
@@ -66,46 +82,27 @@ jobs:
           cp feeds.conf.default openwrt/feeds.conf.default
           cd openwrt
           ./scripts/feeds update -a
-          ./scripts/feeds install -a -p luci
+          ./scripts/feeds install -a
 
-      - name: Fetch DualWeb public UI/API
-        shell: bash
-        run: |
-          set -eux
-          git clone --depth=1 --branch test/openbox-artifacts https://github.com/wfzc6880530/dualweb.git dualweb
-          test -f dualweb/src/main.go
-          test -f dualweb/overlay/etc/uci-defaults/99-dualweb
-          test -f dualweb/overlay/etc/init.d/dualweb-api
-
-      - name: Build DualWeb API for ARMv7
-        shell: bash
-        run: |
-          set -eux
-          cd dualweb
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 \
-            go build -trimpath -ldflags='-s -w' \
-            -o overlay/usr/sbin/dualweb-api src/main.go
-          file overlay/usr/sbin/dualweb-api
-          chmod 0755 overlay/usr/sbin/dualweb-api
-          chmod 0755 overlay/etc/uci-defaults/99-dualweb
-          chmod 0755 overlay/etc/init.d/dualweb-api
-          chmod 0755 overlay/etc/init.d/dualweb-firstboot
-          chmod 0755 overlay/usr/sbin/dualweb-firstboot-packages
-
-      - name: Apply R619AC 128M device configuration
+      - name: Configure R619AC 128M
         shell: bash
         run: |
           set -euxo pipefail
           cd openwrt
-          # Start from the repository's checked-in base configuration.
           cp ../config/r619ac.config .config
-          # Select the device through OpenWrt's canonical profile variable.
-          # A raw DEVICE_* line alone is discarded by Kconfig on this tree.
-          sed -i '/^CONFIG_TARGET_PROFILE=/d' .config
-          printf '\nCONFIG_TARGET_PROFILE="DEVICE_p2w_r619ac-128m"\n' >> .config
+
+          # Normalize package and target settings first.
           make defconfig
-          echo "===== Target and selected device after defconfig ====="
-          grep -E '^CONFIG_TARGET_(ipq40xx|ipq40xx_generic)=|^CONFIG_TARGET_PROFILE=|^CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_p2w_r619ac-128m=' .config || true
+
+          # On this 24.10 tree defconfig has fallen back to the first ipq40xx
+          # profile. Re-assert the intended image profile after normalization;
+          # do not run defconfig again after this point.
+          sed -i '/^CONFIG_TARGET_PROFILE=/d; /^CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_/d' .config
+          printf '\nCONFIG_TARGET_PROFILE="DEVICE_p2w_r619ac-128m"\n' >> .config
+          printf 'CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_p2w_r619ac-128m=y\n' >> .config
+
+          echo "========== Final target selection =========="
+          grep -E '^CONFIG_TARGET_(ipq40xx|ipq40xx_generic)=|^CONFIG_TARGET_PROFILE=|^CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_' .config || true
           grep -qx 'CONFIG_TARGET_ipq40xx=y' .config
           grep -qx 'CONFIG_TARGET_ipq40xx_generic=y' .config
           grep -qx 'CONFIG_TARGET_PROFILE="DEVICE_p2w_r619ac-128m"' .config
@@ -113,22 +110,23 @@ jobs:
           grep -n -A8 'define Device/p2w_r619ac-128m' target/linux/ipq40xx/image/generic.mk
           test -f target/linux/ipq40xx/files-6.6/arch/arm/boot/dts/qcom/qcom-ipq4019-r619ac-128m.dts
 
-      - name: Install DualWeb overlay
+      - name: Install local DualWeb overlay
         shell: bash
         run: |
           set -eux
           mkdir -p openwrt/files
-          cp -a dualweb/overlay/. openwrt/files/
+          cp -a overlay/. openwrt/files/
           chmod 0755 openwrt/files/etc/uci-defaults/99-dualweb
           chmod 0755 openwrt/files/etc/init.d/dualweb-api
           chmod 0755 openwrt/files/etc/init.d/dualweb-firstboot
           chmod 0755 openwrt/files/usr/sbin/dualweb-firstboot-packages
-          # ImmortalWrt 24.10 uses opkg; the upstream first-boot Nikki installer
-          # currently assumes apk feeds. Disable auto-install until opkg support is verified.
+
+          # ImmortalWrt 24.10 uses opkg; the upstream Nikki first-boot helper
+          # assumes apk feeds. Keep the UI/API, but don't start the unverified installer.
           sed -i '/\/etc\/init.d\/dualweb-firstboot enable/d; /\/etc\/init.d\/dualweb-firstboot start/d' \
             openwrt/files/etc/uci-defaults/99-dualweb
 
-      - name: Download sources
+      - name: Download source packages
         shell: bash
         run: |
           set -eux
@@ -149,18 +147,21 @@ jobs:
           mkdir -p firmware
           cd openwrt
           TARGET_DIR="bin/targets/ipq40xx/generic"
-          echo "===== Images generated for R619AC 128M ====="
-          find "$TARGET_DIR" -maxdepth 1 -type f -iname '*r619ac*' -print
+
+          echo "========== Generated R619AC images =========="
+          find "$TARGET_DIR" -maxdepth 1 -type f -iname '*r619ac*' -printf '%f (%s bytes)\n' || true
+          echo "========== Generated profile list =========="
+          grep -in 'p2w_r619ac' "$TARGET_DIR/profiles.json" || true
+
           FACTORY="$(find "$TARGET_DIR" -maxdepth 1 -type f -name '*p2w_r619ac-128m*factory.ubi' -print -quit)"
           SYSUPGRADE="$(find "$TARGET_DIR" -maxdepth 1 -type f -name '*p2w_r619ac-128m*sysupgrade.bin' -print -quit)"
           if [ -z "$FACTORY" ] || [ -z "$SYSUPGRADE" ]; then
-            echo "ERROR: expected R619AC 128M images are missing."
-            echo "Selected device config:"
-            grep -E '^CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_p2w_r619ac-128m=' .config || true
-            echo "Generated device profiles:"
-            grep -in 'p2w_r619ac' "$TARGET_DIR/profiles.json" || true
+            echo "::error::Expected R619AC 128M factory.ubi and sysupgrade.bin were not generated."
+            echo "Final target selection:"
+            grep -E '^CONFIG_TARGET_PROFILE=|^CONFIG_TARGET_DEVICE_ipq40xx_generic_DEVICE_p2w_r619ac-128m=' .config || true
             exit 1
           fi
+
           cp "$FACTORY" ../firmware/
           cp "$SYSUPGRADE" ../firmware/
           cp "$TARGET_DIR"/profiles.json ../firmware/ 2>/dev/null || true
@@ -173,18 +174,19 @@ jobs:
           cat SHA256SUMS.txt
 
       - name: Upload firmware
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: DualWeb-ImmortalWrt-24.10-R619AC-128M
           path: firmware/
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
 
       - name: Build summary
         if: always()
         shell: bash
         run: |
           df -h
-          echo "Base: ImmortalWrt openwrt-24.10 (Linux 6.6, opkg)"
-          echo "Target: ipq40xx/generic / p2w_r619ac-128m"
-          echo "DualWeb API: ARMv7"
+          echo "Base: ImmortalWrt 24.10 / openwrt-24.10 / Linux 6.6 / opkg"
+          echo "Target: ipq40xx/generic / P&W R619AC 128M NAND"
+          echo "DualWeb UI/API: local src/ and overlay/ files; API cross-compiled for ARMv7"
