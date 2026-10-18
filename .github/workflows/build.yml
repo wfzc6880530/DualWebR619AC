@@ -94,6 +94,16 @@ jobs:
           # Normalize package and target settings first.
           make defconfig
 
+          echo "========== Selected libustream TLS backend =========="
+          grep -E '^CONFIG_PACKAGE_(libustream-(mbedtls|openssl)20201210|luci-ssl(-openssl)?)=' .config || true
+          if grep -qx 'CONFIG_PACKAGE_libustream-mbedtls20201210=y' .config && \
+             grep -qx 'CONFIG_PACKAGE_libustream-openssl20201210=y' .config; then
+            echo "::error::Both libustream TLS backends are enabled; they install the same /lib/libustream-ssl.so file."
+            exit 1
+          fi
+          grep -qx 'CONFIG_PACKAGE_libustream-mbedtls20201210=y' .config
+          ! grep -qx 'CONFIG_PACKAGE_libustream-openssl20201210=y' .config
+
           # On this 24.10 tree defconfig has fallen back to the first ipq40xx
           # profile. Re-assert the intended image profile after normalization;
           # do not run defconfig again after this point.
